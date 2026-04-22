@@ -4,11 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserAndProfile } from "@/lib/auth";
 
 export async function createParent(name: string, targetRevenueCents: number | null) {
-  await getUserAndProfile();
+  const { userId } = await getUserAndProfile();
   const supabase = await createClient();
   const { error } = await supabase
     .from("parent_companies")
-    .insert({ name, target_revenue_cents: targetRevenueCents });
+    .insert({ name, target_revenue_cents: targetRevenueCents, owner_user_id: userId });
   if (error) return { error: error.message };
   return { ok: true };
 }
@@ -25,11 +25,11 @@ export async function updateTarget(parentId: string, targetRevenueCents: number 
 }
 
 export async function createChildCompany(parentId: string, name: string) {
-  await getUserAndProfile();
+  const { userId } = await getUserAndProfile();
   const supabase = await createClient();
   const { error } = await supabase
     .from("child_companies")
-    .insert({ parent_company_id: parentId, name });
+    .insert({ parent_company_id: parentId, name, owner_user_id: userId });
   if (error) return { error: error.message };
   return { ok: true };
 }

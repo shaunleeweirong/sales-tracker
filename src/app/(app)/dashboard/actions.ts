@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { getUserAndProfile } from "@/lib/auth";
 
 export async function saveQuota(userId: string, quarter: string, quotaCents: number) {
@@ -8,7 +8,8 @@ export async function saveQuota(userId: string, quarter: string, quotaCents: num
   if (profile.role !== "admin" && userId !== selfId) {
     return { error: "Not allowed" };
   }
-  const supabase = await createClient();
+  // Admins writing another user's quota bypass RLS; self-writes use the auth client.
+  const supabase = userId === selfId ? await createClient() : createServiceRoleClient();
   const { error } = await supabase
     .from("user_quotas")
     .upsert({ user_id: userId, quarter, quota_cents: quotaCents }, { onConflict: "user_id,quarter" });

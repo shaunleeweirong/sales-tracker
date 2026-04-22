@@ -1,13 +1,14 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 
 export async function saveQuotaAdmin(
   updates: { userId: string; quarter: string; quotaCents: number }[],
 ) {
   await requireAdmin();
-  const supabase = await createClient();
+  // Admin writes across reps — bypass RLS.
+  const supabase = createServiceRoleClient();
   const rows = updates.map((u) => ({
     user_id: u.userId,
     quarter: u.quarter,

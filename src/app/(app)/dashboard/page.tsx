@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { getUserAndProfile } from "@/lib/auth";
 import { StatTile } from "@/components/stat-tile";
 import { PacingGauge } from "@/components/pacing-gauge";
@@ -31,7 +31,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const params = await searchParams;
   const targetUserId = profile.role === "admin" && params.userId ? params.userId : selfId;
 
-  const supabase = await createClient();
+  // Admins viewing another rep bypass RLS via the service-role client.
+  const viewingOtherRep = profile.role === "admin" && targetUserId !== selfId;
+  const supabase = viewingOtherRep
+    ? createServiceRoleClient()
+    : await createClient();
   const quarter = currentQuarterLabel();
   const daysLeft = daysRemainingInQuarter();
 

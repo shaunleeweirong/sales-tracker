@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -14,10 +15,39 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Upload, CheckCircle2, AlertTriangle, X } from "lucide-react";
+import { Upload, CheckCircle2, AlertTriangle, X, Download } from "lucide-react";
 import { validateRows, type ParsedRow, type RowWarning } from "@/lib/csv-import";
 import { commitImport } from "./actions";
 import { formatCents } from "@/lib/forecast";
+
+const TEMPLATE_HEADERS = [
+  "Parent Company",
+  "Child Company",
+  "LinkedIn Ad Account ID",
+  "Last 7 Days Spend",
+  "QTD Spend",
+];
+
+const TEMPLATE_SAMPLE = [
+  "Acme Corporation",
+  "Acme Brand",
+  "123456789",
+  "1500.00",
+  "18000.00",
+];
+
+function downloadTemplate() {
+  const csv = [TEMPLATE_HEADERS, TEMPLATE_SAMPLE]
+    .map((row) => row.map((v) => `"${v}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "spend-import-template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export function CsvUploader() {
   const router = useRouter();
@@ -29,17 +59,22 @@ export function CsvUploader() {
 
   async function handleFile(f: File) {
     setFile(f);
-    Papa.parse(f, {
+    let csvText: string;
+    if (/\.xlsx?$/i.test(f.name)) {
+      const wb = XLSX.read(await f.arrayBuffer(), { type: "array" });
+      csvText = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]);
+    } else {
+      csvText = await f.text();
+    }
+    const parsed = Papa.parse<Record<string, string | undefined>>(csvText, {
       header: true,
       skipEmptyLines: true,
-      complete: ({ data, meta }) => {
-        const headers = meta.fields ?? [];
-        const result = validateRows(data as Record<string, string | undefined>[], headers);
-        setRows(result.rows);
-        setWarnings(result.warnings);
-        setInvalid(result.invalidCount);
-      },
     });
+    const headers = parsed.meta.fields ?? [];
+    const result = validateRows(parsed.data, headers);
+    setRows(result.rows);
+    setWarnings(result.warnings);
+    setInvalid(result.invalidCount);
   }
 
   function reset() {
@@ -78,37 +113,49 @@ export function CsvUploader() {
 
   if (!file) {
     return (
-      <Card>
-        <CardContent
-          className="p-12 border-2 border-dashed border-muted-foreground/30 rounded-lg text-center flex flex-col items-center gap-3"
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            const f = e.dataTransfer.files[0];
-            if (f) handleFile(f);
-          }}
-        >
-          <Upload className="h-8 w-8 text-muted-foreground" />
-          <div className="text-sm">
-            Drop CSV here, or{" "}
-            <label className="text-primary hover:underline cursor-pointer">
-              choose file
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFile(f);
-                }}
-              />
-            </label>
+      <div className="flex flex-col gap-3">
+        <div className="rounded-md border bg-muted/40 px-4 py-3 flex items-center justify-between gap-4">
+          <div className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">New here?</span> Download the template,
+            fill in your ad account spend data, and upload it below.
           </div>
-        </CardContent>
-      </Card>
+          <Button variant="outline" size="sm" onClick={downloadTemplate} className="shrink-0">
+            <Download className="h-4 w-4" />
+            Download template
+          </Button>
+        </div>
+        <Card>
+          <CardContent
+            className="p-12 border-2 border-dashed border-muted-foreground/30 rounded-lg text-center flex flex-col items-center gap-3"
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const f = e.dataTransfer.files[0];
+              if (f) handleFile(f);
+            }}
+          >
+            <Upload className="h-8 w-8 text-muted-foreground" />
+            <div className="text-sm">
+              Drop CSV or Excel here, or{" "}
+              <label className="text-primary hover:underline cursor-pointer">
+                choose file
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleFile(f);
+                  }}
+                />
+              </label>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

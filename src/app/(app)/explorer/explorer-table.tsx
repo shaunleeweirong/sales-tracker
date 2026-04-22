@@ -21,6 +21,7 @@ import { formatCents, formatCentsAbbrev } from "@/lib/forecast";
 import { cn } from "@/lib/utils";
 import { updateTarget } from "../companies/actions";
 import { toast } from "sonner";
+import { QuickNewOppDialog } from "./quick-new-opp-dialog";
 
 type Company = { id: string; name: string; target_revenue_cents: number | null };
 type Account = {
@@ -53,12 +54,16 @@ export function ExplorerTable({
   opps,
   childCompanies,
   profiles,
+  selfUserId,
+  selfTeamId,
 }: {
   companies: Company[];
   accounts: Account[];
   opps: Opp[];
   childCompanies: ChildCo[];
   profiles: Profile[];
+  selfUserId: string;
+  selfTeamId: string | null;
 }) {
   const [openCompanies, setOpenCompanies] = useState<Set<string>>(new Set());
   const [openAccounts, setOpenAccounts] = useState<Set<string>>(new Set());
@@ -383,13 +388,32 @@ export function ExplorerTable({
                               </TableRow>
                             ))}
 
-                          {accountOpen && accountOpps.length === 0 && (
+                          {accountOpen && (
                             <TableRow>
                               <TableCell
                                 colSpan={6}
-                                className="pl-14 text-sm text-muted-foreground italic"
+                                className="pl-14 py-2 text-sm text-muted-foreground"
                               >
-                                No opportunities on this ad account yet.
+                                <div className="flex items-center gap-3">
+                                  {accountOpps.length === 0 && (
+                                    <span className="italic">
+                                      No opportunities on this ad account yet.
+                                    </span>
+                                  )}
+                                  <QuickNewOppDialog
+                                    parentCompanyId={c.id}
+                                    parentCompanyName={c.name}
+                                    childCompanyName={
+                                      a.child_company_id
+                                        ? childMap.get(a.child_company_id) ?? null
+                                        : null
+                                    }
+                                    adAccountId={a.id}
+                                    linkedinAccountId={a.linkedin_account_id}
+                                    selfUserId={selfUserId}
+                                    selfTeamId={selfTeamId}
+                                  />
+                                </div>
                               </TableCell>
                             </TableRow>
                           )}

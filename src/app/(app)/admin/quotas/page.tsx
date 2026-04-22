@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 import { currentQuarterLabel } from "@/lib/quarter";
 import { QuotaGrid } from "./quota-grid";
 
@@ -9,7 +9,8 @@ export default async function QuotasPage({ searchParams }: { searchParams: Searc
   await requireAdmin();
   const params = await searchParams;
   const quarter = params.quarter ?? currentQuarterLabel();
-  const supabase = await createClient();
+  // Admin-only page; bypass RLS to see all reps' quotas.
+  const supabase = createServiceRoleClient();
 
   const [{ data: reps }, { data: quotas }, { data: teams }] = await Promise.all([
     supabase.from("profiles").select("id, full_name, team_id").order("full_name"),

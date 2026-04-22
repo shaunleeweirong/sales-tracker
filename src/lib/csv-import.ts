@@ -22,8 +22,8 @@ export interface ImportValidationResult {
 }
 
 const HEADER_ALIASES: Record<keyof Omit<ParsedRow, "rowIndex">, string[]> = {
-  parentCompany: ["parent company", "parent", "client", "parent co"],
-  childCompany: ["child company", "child", "advertiser", "brand", "child co"],
+  parentCompany: ["parent company", "parent account", "parent", "client", "parent co"],
+  childCompany: ["child company", "child account", "child", "advertiser", "brand", "child co"],
   linkedinAccountId: [
     "linkedin ad account id",
     "linkedin account id",
@@ -34,6 +34,7 @@ const HEADER_ALIASES: Record<keyof Omit<ParsedRow, "rowIndex">, string[]> = {
   last7dSpendCents: [
     "last 7 days spend",
     "last 7d spend",
+    "sum l7d spend",
     "7 day spend",
     "7d spend",
     "last 7 days",
@@ -88,13 +89,33 @@ export function validateRows(
     return { rows, warnings, invalidCount: rawRows.length };
   }
 
+  let lastParent = "";
+  let lastChild = "";
+
   rawRows.forEach((raw, i) => {
     const rowIndex = i + 2; // +1 for header, +1 for 1-based
-    const parent = (raw[map.parentCompany!] ?? "").trim();
-    const child = (map.childCompany ? raw[map.childCompany]?.trim() : "") || parent;
+    const parentCell = (raw[map.parentCompany!] ?? "").trim();
+    const childCell = map.childCompany ? (raw[map.childCompany] ?? "").trim() : "";
     const acct = (raw[map.linkedinAccountId!] ?? "").trim();
     const last7Raw = map.last7dSpendCents ? raw[map.last7dSpendCents] : null;
     const qtdRaw = map.qtdSpendCents ? raw[map.qtdSpendCents] : null;
+
+    // Skip spreadsheet summary rows like "Grand Total" / "Total".
+    const parentNormalized = parentCell.toLowerCase();
+    if (parentNormalized === "grand total" || parentNormalized === "total") {
+      return;
+    }
+
+    // Forward-fill merged-cell blanks from the previous row. When a new parent
+    // appears, reset the child scope so we don't inherit across parents.
+    if (parentCell) {
+      lastParent = parentCell;
+      lastChild = childCell;
+    } else if (childCell) {
+      lastChild = childCell;
+    }
+    const parent = parentCell || lastParent;
+    const child = childCell || lastChild || parent;
 
     if (!parent) {
       invalid++;

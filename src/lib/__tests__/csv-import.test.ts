@@ -157,4 +157,117 @@ describe("validateRows", () => {
     expect(r.invalidCount).toBe(1);
     expect(r.warnings[0].message).toMatch(/Missing required column/);
   });
+
+  describe("LinkedIn Ads export shape", () => {
+    const linkedInHeaders = [
+      "Parent Account",
+      "Child Account",
+      "Ad Account ID",
+      "QTD Spend",
+      "Sum L7D Spend",
+    ];
+
+    it("maps Parent/Child Account and Sum L7D Spend aliases", () => {
+      const m = mapHeaders(linkedInHeaders);
+      expect(m.parentCompany).toBe("Parent Account");
+      expect(m.childCompany).toBe("Child Account");
+      expect(m.linkedinAccountId).toBe("Ad Account ID");
+      expect(m.last7dSpendCents).toBe("Sum L7D Spend");
+      expect(m.qtdSpendCents).toBe("QTD Spend");
+    });
+
+    it("skips Grand Total / Total summary rows", () => {
+      const r = validateRows(
+        [
+          {
+            "Parent Account": "Grand Total",
+            "Child Account": "Total",
+            "Ad Account ID": "Total",
+            "QTD Spend": "201,396",
+            "Sum L7D Spend": "76,642",
+          },
+          {
+            "Parent Account": "Government of Singapore",
+            "Child Account": "Singapore Airlines Limited",
+            "Ad Account ID": "504588172",
+            "QTD Spend": "24,311",
+            "Sum L7D Spend": "12,560",
+          },
+        ],
+        linkedInHeaders,
+      );
+      expect(r.rows).toHaveLength(1);
+      expect(r.rows[0].linkedinAccountId).toBe("504588172");
+      expect(r.rows[0].qtdSpendCents).toBe(2_431_100);
+      expect(r.rows[0].last7dSpendCents).toBe(1_256_000);
+    });
+
+    it("forward-fills merged-cell blank Parent/Child from previous row", () => {
+      const r = validateRows(
+        [
+          {
+            "Parent Account": "Government of Singapore",
+            "Child Account": "Singapore Airlines Limited",
+            "Ad Account ID": "504588172",
+            "QTD Spend": "24,311",
+            "Sum L7D Spend": "12,560",
+          },
+          {
+            "Parent Account": "",
+            "Child Account": "",
+            "Ad Account ID": "519778097",
+            "QTD Spend": "999",
+            "Sum L7D Spend": "22",
+          },
+          {
+            "Parent Account": "",
+            "Child Account": "SCOOT PTE. LTD.",
+            "Ad Account ID": "508726987",
+            "QTD Spend": "5,239",
+            "Sum L7D Spend": "1,512",
+          },
+        ],
+        linkedInHeaders,
+      );
+      expect(r.rows).toHaveLength(3);
+      expect(r.rows[1]).toMatchObject({
+        parentCompany: "Government of Singapore",
+        childCompany: "Singapore Airlines Limited",
+        linkedinAccountId: "519778097",
+      });
+      expect(r.rows[2]).toMatchObject({
+        parentCompany: "Government of Singapore",
+        childCompany: "SCOOT PTE. LTD.",
+        linkedinAccountId: "508726987",
+      });
+    });
+
+    it("resets child scope when a new parent appears", () => {
+      const r = validateRows(
+        [
+          {
+            "Parent Account": "Government of Singapore",
+            "Child Account": "Singapore Airlines Limited",
+            "Ad Account ID": "1",
+            "QTD Spend": "1",
+            "Sum L7D Spend": "1",
+          },
+          {
+            "Parent Account": "ELSA CORPORATION",
+            "Child Account": "",
+            "Ad Account ID": "2",
+            "QTD Spend": "1",
+            "Sum L7D Spend": "1",
+          },
+        ],
+        linkedInHeaders,
+      );
+      // New parent with blank child should NOT inherit Singapore Airlines.
+      // Falls back to parent name via existing behaviour.
+      expect(r.rows[1]).toMatchObject({
+        parentCompany: "ELSA CORPORATION",
+        childCompany: "ELSA CORPORATION",
+      });
+    });
+  });
 });

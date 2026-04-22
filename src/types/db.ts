@@ -7,9 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  __InternalSupabase: {
-    PostgrestVersion: "12"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -45,6 +42,7 @@ export type Database = {
           last_7d_spend_cents: number
           last_synced_at: string | null
           linkedin_account_id: string
+          owner_user_id: string
           parent_company_id: string
           qtd_spend_cents: number
           updated_at: string
@@ -56,6 +54,7 @@ export type Database = {
           last_7d_spend_cents?: number
           last_synced_at?: string | null
           linkedin_account_id: string
+          owner_user_id: string
           parent_company_id: string
           qtd_spend_cents?: number
           updated_at?: string
@@ -67,6 +66,7 @@ export type Database = {
           last_7d_spend_cents?: number
           last_synced_at?: string | null
           linkedin_account_id?: string
+          owner_user_id?: string
           parent_company_id?: string
           qtd_spend_cents?: number
           updated_at?: string
@@ -78,6 +78,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "child_companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_accounts_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_accounts_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_rep_pacing"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "ad_accounts_parent_company_id_fkey"
@@ -93,21 +107,38 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          owner_user_id: string
           parent_company_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          owner_user_id: string
           parent_company_id: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          owner_user_id?: string
           parent_company_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "child_companies_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "child_companies_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_rep_pacing"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "child_companies_parent_company_id_fkey"
             columns: ["parent_company_id"]
@@ -261,6 +292,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          owner_user_id: string
           target_revenue_cents: number | null
           updated_at: string
         }
@@ -268,6 +300,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          owner_user_id: string
           target_revenue_cents?: number | null
           updated_at?: string
         }
@@ -275,10 +308,26 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          owner_user_id?: string
           target_revenue_cents?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "parent_companies_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parent_companies_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_rep_pacing"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       profiles: {
         Row: {

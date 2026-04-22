@@ -3,7 +3,7 @@ import { getUserAndProfile } from "@/lib/auth";
 import { ExplorerTable } from "./explorer-table";
 
 export default async function ExplorerPage() {
-  await getUserAndProfile();
+  const { userId: selfUserId, profile } = await getUserAndProfile();
   const supabase = await createClient();
 
   const [
@@ -40,6 +40,8 @@ export default async function ExplorerPage() {
         </p>
       </div>
       <ExplorerTable
+        selfUserId={selfUserId}
+        selfTeamId={profile.team_id}
         companies={companies ?? []}
         accounts={(accounts ?? []).map((a) => ({
           id: a.id ?? "",
