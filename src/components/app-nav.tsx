@@ -20,7 +20,8 @@ const NAV = [
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/opportunities", label: "Opportunities", icon: Target },
   { href: "/explorer", label: "Explorer", icon: Layers },
-  { href: "/admin/import", label: "CSV Import", icon: Upload },
+  { href: "/admin/import", label: "Import Spend", icon: Upload },
+  { href: "/admin/import-opportunities", label: "Import Opportunities", icon: Upload },
 ];
 
 const ADMIN = [
