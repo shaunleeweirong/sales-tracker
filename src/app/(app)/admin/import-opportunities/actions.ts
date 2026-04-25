@@ -42,16 +42,6 @@ export async function commitOppImport(payload: { rows: Row[] }) {
     });
   }
 
-  // Resolve optional teams (case-insensitive name match)
-  const teamNames = [
-    ...new Set(payload.rows.map((r) => r.teamName).filter((t): t is string => Boolean(t))),
-  ];
-  const teamIdByName = new Map<string, string>();
-  if (teamNames.length) {
-    const { data: teams } = await supabase.from("teams").select("id, name");
-    (teams ?? []).forEach((t) => teamIdByName.set(t.name.toLowerCase(), t.id));
-  }
-
   const inserts: Array<{
     name: string;
     ad_account_id: string;
@@ -60,7 +50,6 @@ export async function commitOppImport(payload: { rows: Row[] }) {
     probability_pct: number;
     expected_close_date: string | null;
     owner_user_id: string | null;
-    team_id: string | null;
     go_to_market_notes: string | null;
     roles_and_responsibilities: string | null;
     notes: string | null;
@@ -87,19 +76,6 @@ export async function commitOppImport(payload: { rows: Row[] }) {
         });
       }
     }
-    let teamId: string | null = null;
-    if (r.teamName) {
-      const found = teamIdByName.get(r.teamName.toLowerCase());
-      if (found) {
-        teamId = found;
-      } else {
-        warnings.push({
-          rowIndex: r.rowIndex,
-          message: `Team "${r.teamName}" not found — left blank`,
-        });
-      }
-    }
-
     inserts.push({
       name: r.name,
       ad_account_id: acct.id,
@@ -108,7 +84,6 @@ export async function commitOppImport(payload: { rows: Row[] }) {
       probability_pct: r.probabilityPct,
       expected_close_date: r.expectedCloseDate,
       owner_user_id: ownerId,
-      team_id: teamId,
       go_to_market_notes: r.goToMarketNotes,
       roles_and_responsibilities: r.rolesAndResponsibilities,
       notes: r.notes,

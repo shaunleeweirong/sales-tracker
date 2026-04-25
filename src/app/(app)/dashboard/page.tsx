@@ -12,7 +12,6 @@ type Search = Promise<{ userId?: string }>;
 type PacingRow = {
   user_id: string;
   full_name: string | null;
-  team_name: string | null;
   quarter: string;
   quota_cents: number;
   qtd_revenue_cents: number;
@@ -79,7 +78,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   }
 
   const displayName = pacing?.full_name ?? profile.full_name ?? "—";
-  const teamName = pacing?.team_name ?? "—";
 
   return (
     <div className="flex flex-col gap-6">
@@ -87,7 +85,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         <div>
           <h1 className="text-2xl font-semibold">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            {displayName} · Team {teamName} · {quarter} · {daysLeft} days remaining
+            {displayName} · {quarter} · {daysLeft} days remaining
           </p>
         </div>
         {profile.role === "admin" && <RepSelect reps={reps} selected={targetUserId} />}

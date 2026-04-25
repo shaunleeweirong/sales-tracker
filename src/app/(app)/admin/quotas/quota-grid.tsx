@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { saveQuotaAdmin } from "./actions";
 
-type Row = { userId: string; name: string; team: string; quotaCents: number };
+type Row = { userId: string; name: string; quotaCents: number };
 
 export function QuotaGrid({ quarter, rows }: { quarter: string; rows: Row[] }) {
   const router = useRouter();
@@ -50,7 +50,6 @@ export function QuotaGrid({ quarter, rows }: { quarter: string; rows: Row[] }) {
           <TableHeader>
             <TableRow>
               <TableHead>Rep</TableHead>
-              <TableHead>Team</TableHead>
               <TableHead className="w-48 text-right">Quota ($)</TableHead>
             </TableRow>
           </TableHeader>
@@ -58,7 +57,6 @@ export function QuotaGrid({ quarter, rows }: { quarter: string; rows: Row[] }) {
             {rows.map((r) => (
               <TableRow key={r.userId}>
                 <TableCell>{r.name}</TableCell>
-                <TableCell>{r.team}</TableCell>
                 <TableCell className="text-right">
                   <Input
                     value={values[r.userId] ?? ""}
@@ -73,7 +71,7 @@ export function QuotaGrid({ quarter, rows }: { quarter: string; rows: Row[] }) {
             ))}
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                <TableCell colSpan={2} className="text-center text-muted-foreground py-6">
                   No reps yet.
                 </TableCell>
               </TableRow>

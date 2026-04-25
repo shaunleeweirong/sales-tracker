@@ -9,7 +9,6 @@ export interface ParsedOppRow {
   probabilityPct: number;
   expectedCloseDate: string | null;
   ownerName: string | null;
-  teamName: string | null;
   goToMarketNotes: string | null;
   rolesAndResponsibilities: string | null;
   notes: string | null;
@@ -50,7 +49,6 @@ const HEADER_ALIASES: Record<FieldKey, string[]> = {
     "target close date",
   ],
   ownerName: ["owner", "owner name", "ae", "assigned to", "assignee"],
-  teamName: ["team", "team name"],
   goToMarketNotes: [
     "go to market notes",
     "go-to-market notes",
@@ -214,7 +212,6 @@ export function validateOppRows(
       probabilityPct: prob.value,
       expectedCloseDate: closeDate.value,
       ownerName: nullIfBlank(cell(raw, map.ownerName)),
-      teamName: nullIfBlank(cell(raw, map.teamName)),
       goToMarketNotes: nullIfBlank(cell(raw, map.goToMarketNotes)),
       rolesAndResponsibilities: nullIfBlank(cell(raw, map.rolesAndResponsibilities)),
       notes: nullIfBlank(cell(raw, map.notes)),

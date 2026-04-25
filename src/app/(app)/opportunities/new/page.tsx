@@ -9,7 +9,7 @@ export default async function NewOpportunityPage({ searchParams }: { searchParam
   const { profile } = await getUserAndProfile();
   const params = await searchParams;
   const supabase = await createClient();
-  const { companies, owners, teams, adAccountsByCompany } = await loadFormData(supabase);
+  const { companies, owners, adAccountsByCompany } = await loadFormData(supabase);
 
   return (
     <div className="flex flex-col gap-4">
@@ -19,7 +19,6 @@ export default async function NewOpportunityPage({ searchParams }: { searchParam
           name: "",
           parentCompanyId: params.companyId ?? "",
           ownerUserId: profile.id,
-          teamId: profile.team_id,
           forecastedCents: 0,
           probabilityPct: 25,
           expectedCloseDate: null,
@@ -30,7 +29,6 @@ export default async function NewOpportunityPage({ searchParams }: { searchParam
         }}
         companies={companies}
         owners={owners}
-        teams={teams}
         adAccountsByCompany={adAccountsByCompany}
       />
     </div>

@@ -18,7 +18,7 @@ export default async function EditOpportunityPage({ params }: { params: Params }
     .single();
   if (!opp) notFound();
 
-  const { companies, owners, teams, adAccountsByCompany } = await loadFormData(supabase);
+  const { companies, owners, adAccountsByCompany } = await loadFormData(supabase);
 
   return (
     <div className="flex flex-col gap-4">
@@ -29,7 +29,6 @@ export default async function EditOpportunityPage({ params }: { params: Params }
           name: opp.name,
           parentCompanyId: opp.parent_company_id,
           ownerUserId: opp.owner_user_id,
-          teamId: opp.team_id,
           forecastedCents: opp.forecasted_pipeline_cents,
           probabilityPct: opp.probability_pct,
           expectedCloseDate: opp.expected_close_date,
@@ -40,7 +39,6 @@ export default async function EditOpportunityPage({ params }: { params: Params }
         }}
         companies={companies}
         owners={owners}
-        teams={teams}
         adAccountsByCompany={adAccountsByCompany}
       />
     </div>

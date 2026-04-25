@@ -32,7 +32,6 @@ type Props = {
   adAccountId: string;
   linkedinAccountId: string;
   selfUserId: string;
-  selfTeamId: string | null;
 };
 
 export function QuickNewOppDialog({
@@ -42,7 +41,6 @@ export function QuickNewOppDialog({
   adAccountId,
   linkedinAccountId,
   selfUserId,
-  selfTeamId,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -73,7 +71,6 @@ export function QuickNewOppDialog({
         parentCompanyId,
         adAccountId,
         ownerUserId: selfUserId,
-        teamId: selfTeamId,
         forecastedCents,
         probabilityPct,
         expectedCloseDate: closeDate || null,

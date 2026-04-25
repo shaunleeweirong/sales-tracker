@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 export type Profile = {
   id: string;
   full_name: string | null;
-  team_id: string | null;
   role: "rep" | "admin";
 };
 
@@ -21,7 +20,7 @@ export async function getUserAndProfile(): Promise<{
 
   const { data } = await supabase
     .from("profiles")
-    .select("id, full_name, team_id, role")
+    .select("id, full_name, role")
     .eq("id", user.id)
     .single();
 
@@ -29,13 +28,11 @@ export async function getUserAndProfile(): Promise<{
     ? {
         id: data.id,
         full_name: data.full_name,
-        team_id: data.team_id,
         role: (data.role === "admin" ? "admin" : "rep") as "rep" | "admin",
       }
     : {
         id: user.id,
         full_name: user.email ?? null,
-        team_id: null,
         role: "rep",
       };
 

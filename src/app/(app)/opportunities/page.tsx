@@ -4,7 +4,7 @@ import { getUserAndProfile } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { OpportunitiesTable, type OppRow } from "./opportunities-table";
 
-type Search = Promise<{ owner?: string; team?: string }>;
+type Search = Promise<{ owner?: string }>;
 
 export default async function OpportunitiesPage({ searchParams }: { searchParams: Search }) {
   await getUserAndProfile();
@@ -14,10 +14,9 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
   let q = supabase
     .from("v_opportunities_weighted")
     .select(
-      "id, name, probability_pct, forecasted_pipeline_cents, weighted_pipeline_cents, expected_close_date, parent_company_id, owner_user_id, team_id, ad_account_linkedin_id",
+      "id, name, probability_pct, forecasted_pipeline_cents, weighted_pipeline_cents, expected_close_date, parent_company_id, owner_user_id, ad_account_linkedin_id",
     );
   if (params.owner) q = q.eq("owner_user_id", params.owner);
-  if (params.team) q = q.eq("team_id", params.team);
 
   const { data: opps } = await q.order("expected_close_date", { ascending: true });
 

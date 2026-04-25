@@ -66,20 +66,16 @@ select
 from auth.users u
 where u.email in ('shaun@test.com','priya@test.com','marcos@test.com','jen@test.com');
 
--- ─── Teams ───────────────────────────────────────────────────────────────────
-insert into public.teams (id, name) values
-  ('aaaa1111-0000-0000-0000-000000000000', 'Alpha'),
-  ('bbbb1111-0000-0000-0000-000000000000', 'Bravo');
-
 -- ─── Profile assignments (full_name already set by trigger) ──────────────────
-update public.profiles set team_id = 'aaaa1111-0000-0000-0000-000000000000', role = 'admin'
+update public.profiles set role = 'admin'
   where id = '11111111-1111-1111-1111-111111111111';
-update public.profiles set team_id = 'aaaa1111-0000-0000-0000-000000000000'
-  where id = '22222222-2222-2222-2222-222222222222';
-update public.profiles set team_id = 'bbbb1111-0000-0000-0000-000000000000'
-  where id = '33333333-3333-3333-3333-333333333333';
-update public.profiles set team_id = 'bbbb1111-0000-0000-0000-000000000000'
-  where id = '44444444-4444-4444-4444-444444444444';
+
+-- Demo data pre-dates per-user isolation (migration 005). Seed everything
+-- under Shaun, temporarily relaxing NOT NULL so we don't have to rewrite
+-- every row, then restoring the constraints at the end.
+alter table public.parent_companies alter column owner_user_id drop not null;
+alter table public.child_companies  alter column owner_user_id drop not null;
+alter table public.ad_accounts      alter column owner_user_id drop not null;
 
 -- ─── Parent companies (quarterly targets in cents) ───────────────────────────
 insert into public.parent_companies (id, name, target_revenue_cents) values
@@ -114,43 +110,52 @@ insert into public.ad_accounts (id, linkedin_account_id, parent_company_id, chil
 
 -- ─── Opportunities (one ad account each) ────────────────────────────────────
 -- Demo shows same ad account appearing on multiple opps (Acme Q2 Renewal + Beta Upsell example).
-insert into public.opportunities (id, name, parent_company_id, ad_account_id, owner_user_id, team_id, forecasted_pipeline_cents, probability_pct, expected_close_date, notes, go_to_market_notes, roles_and_responsibilities) values
-  ('0ddd0000-0000-0000-0000-000000000001', 'Acme Q2 Renewal',      'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'aaaa1111-0000-0000-0000-000000000000', 10000000, 90,  '2026-06-30', 'Verbal from CMO',
+insert into public.opportunities (id, name, parent_company_id, ad_account_id, owner_user_id, forecasted_pipeline_cents, probability_pct, expected_close_date, notes, go_to_market_notes, roles_and_responsibilities) values
+  ('0ddd0000-0000-0000-0000-000000000001', 'Acme Q2 Renewal',      'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 10000000, 90,  '2026-06-30', 'Verbal from CMO',
     'Position as performance-tier renewal; lead with Q1 ROAS lift.',
     E'Shaun — lead, commercial owner\nPriya — analytics + pitch deck\nSE team — creative strategy'),
-  ('0ddd0000-0000-0000-0000-000000000010', 'Acme Brand Cross-sell', 'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'aaaa1111-0000-0000-0000-000000000000',  3000000, 50,  '2026-08-15', null,
+  ('0ddd0000-0000-0000-0000-000000000010', 'Acme Brand Cross-sell', 'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',  3000000, 50,  '2026-08-15', null,
     'Secondary pitch against the same Brand ad account — add sponsored content tier.',
     E'Shaun — lead\nPriya — deck'),
-  ('0ddd0000-0000-0000-0000-000000000002', 'Acme Retail Expansion','c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000003', '22222222-2222-2222-2222-222222222222', 'aaaa1111-0000-0000-0000-000000000000',  4000000, 50,  '2026-06-28', null,
+  ('0ddd0000-0000-0000-0000-000000000002', 'Acme Retail Expansion','c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000003', '22222222-2222-2222-2222-222222222222',  4000000, 50,  '2026-06-28', null,
     'Expand current Retail campaigns into DACH. Needs local creative + language QA before proposal.',
     E'Priya — account lead\nLocalisation team — creative QA'),
-  ('0ddd0000-0000-0000-0000-000000000003', 'Acme Labs Pilot',      'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'aaaa1111-0000-0000-0000-000000000000',  2000000, 25,  '2026-07-15', null,
+  ('0ddd0000-0000-0000-0000-000000000003', 'Acme Labs Pilot',      'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111',  2000000, 25,  '2026-07-15', null,
     'New audience: startup founders. Budget limited; start with 2-week test on Labs audience.',
     E'Shaun — sponsor\nJen — SE support'),
-  ('0ddd0000-0000-0000-0000-000000000004', 'Beta Brand Launch',    'c2220000-0000-0000-0000-000000000000', 'aa220000-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'aaaa1111-0000-0000-0000-000000000000',  8000000, 75,  '2026-06-15', null,
+  ('0ddd0000-0000-0000-0000-000000000004', 'Beta Brand Launch',    'c2220000-0000-0000-0000-000000000000', 'aa220000-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222',  8000000, 75,  '2026-06-15', null,
     'Brand awareness push — Video + sponsored content. Creatives ready; procurement in flight.',
     E'Priya — AE lead\nClient CMO + CFO as signers'),
-  ('0ddd0000-0000-0000-0000-000000000005', 'Beta Upsell',          'c2220000-0000-0000-0000-000000000000', 'aa220000-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', 'aaaa1111-0000-0000-0000-000000000000',  2500000, 10,  '2026-08-01', null, null, null),
-  ('0ddd0000-0000-0000-0000-000000000006', 'Gamma Consumer Scale', 'c3330000-0000-0000-0000-000000000000', 'aa330000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333', 'bbbb1111-0000-0000-0000-000000000000',  6000000, 75,  '2026-06-20', null,
+  ('0ddd0000-0000-0000-0000-000000000005', 'Beta Upsell',          'c2220000-0000-0000-0000-000000000000', 'aa220000-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222',  2500000, 10,  '2026-08-01', null, null, null),
+  ('0ddd0000-0000-0000-0000-000000000006', 'Gamma Consumer Scale', 'c3330000-0000-0000-0000-000000000000', 'aa330000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333',  6000000, 75,  '2026-06-20', null,
     'Scale proven Q1 playbook: lookalike targeting + 3 ad variants.',
     E'Marcos — owner\nMedia planning — budget pacing'),
-  ('0ddd0000-0000-0000-0000-000000000007', 'Gamma B2B Pilot',      'c3330000-0000-0000-0000-000000000000', 'aa330000-0000-0000-0000-000000000003', '44444444-4444-4444-4444-444444444444', 'bbbb1111-0000-0000-0000-000000000000',  3500000, 50,  '2026-06-30', null, null, null),
-  ('0ddd0000-0000-0000-0000-000000000008', 'Gamma Mega Deal',      'c3330000-0000-0000-0000-000000000000', 'aa330000-0000-0000-0000-000000000002', '33333333-3333-3333-3333-333333333333', 'bbbb1111-0000-0000-0000-000000000000', 20000000,  5,  '2026-09-30', 'Early-stage convo',
+  ('0ddd0000-0000-0000-0000-000000000007', 'Gamma B2B Pilot',      'c3330000-0000-0000-0000-000000000000', 'aa330000-0000-0000-0000-000000000003', '44444444-4444-4444-4444-444444444444',  3500000, 50,  '2026-06-30', null, null, null),
+  ('0ddd0000-0000-0000-0000-000000000008', 'Gamma Mega Deal',      'c3330000-0000-0000-0000-000000000000', 'aa330000-0000-0000-0000-000000000002', '33333333-3333-3333-3333-333333333333', 20000000,  5,  '2026-09-30', 'Early-stage convo',
     'Enterprise-wide LinkedIn commitment. Blocker: need legal redlines on data-processing addendum.',
     E'Marcos — exec sponsor\nLegal — DPA review'),
-  ('0ddd0000-0000-0000-0000-000000000009', 'Delta Retention',      'c4440000-0000-0000-0000-000000000000', 'aa440000-0000-0000-0000-000000000001', '44444444-4444-4444-4444-444444444444', 'bbbb1111-0000-0000-0000-000000000000',  1500000,100,  '2026-04-30', 'Closed early in quarter', null, null);
+  ('0ddd0000-0000-0000-0000-000000000009', 'Delta Retention',      'c4440000-0000-0000-0000-000000000000', 'aa440000-0000-0000-0000-000000000001', '44444444-4444-4444-4444-444444444444',  1500000,100,  '2026-04-30', 'Closed early in quarter', null, null);
 
 -- ─── Confirmed (100%) opportunities to cover QTD spend ──────────────────────
 -- Acme Corp: all 5 accounts covered. BetaCo: both accounts covered.
 -- Delta Partners: covered by Delta Retention above. Gamma Industries: intentionally uncovered → shows warning.
-insert into public.opportunities (id, name, parent_company_id, ad_account_id, owner_user_id, team_id, forecasted_pipeline_cents, probability_pct, expected_close_date, notes, go_to_market_notes, roles_and_responsibilities) values
-  ('0fff0000-0000-0000-0000-000000000001', 'Acme Brand Always-on Q2',     'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'aaaa1111-0000-0000-0000-000000000000', 7000000, 100, '2026-06-30', 'Committed. PO received.', null, null),
-  ('0fff0000-0000-0000-0000-000000000002', 'Acme Brand Always-on Secondary','c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'aaaa1111-0000-0000-0000-000000000000', 3000000, 100, '2026-06-30', 'Signed IO on file.',      null, null),
-  ('0fff0000-0000-0000-0000-000000000003', 'Acme Retail Confirmed',        'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000003', '22222222-2222-2222-2222-222222222222', 'aaaa1111-0000-0000-0000-000000000000', 2000000, 100, '2026-05-31', 'Renewal signed.',          null, null),
-  ('0fff0000-0000-0000-0000-000000000004', 'Acme Labs Confirmed',          'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'aaaa1111-0000-0000-0000-000000000000', 1500000, 100, '2026-05-31', 'Test budget approved.',    null, null),
-  ('0fff0000-0000-0000-0000-000000000005', 'Acme Labs Always-on 2',        'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000005', '22222222-2222-2222-2222-222222222222', 'aaaa1111-0000-0000-0000-000000000000', 1000000, 100, '2026-06-15', 'Standing budget.',         null, null),
-  ('0fff0000-0000-0000-0000-000000000006', 'Beta Brand Confirmed',         'c2220000-0000-0000-0000-000000000000', 'aa220000-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'aaaa1111-0000-0000-0000-000000000000', 5500000, 100, '2026-06-15', 'MSA executed.',            null, null),
-  ('0fff0000-0000-0000-0000-000000000007', 'Beta Retention Confirmed',     'c2220000-0000-0000-0000-000000000000', 'aa220000-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', 'aaaa1111-0000-0000-0000-000000000000', 2000000, 100, '2026-05-15', 'Auto-renew confirmed.',    null, null);
+insert into public.opportunities (id, name, parent_company_id, ad_account_id, owner_user_id, forecasted_pipeline_cents, probability_pct, expected_close_date, notes, go_to_market_notes, roles_and_responsibilities) values
+  ('0fff0000-0000-0000-0000-000000000001', 'Acme Brand Always-on Q2',     'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 7000000, 100, '2026-06-30', 'Committed. PO received.', null, null),
+  ('0fff0000-0000-0000-0000-000000000002', 'Acme Brand Always-on Secondary','c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 3000000, 100, '2026-06-30', 'Signed IO on file.',      null, null),
+  ('0fff0000-0000-0000-0000-000000000003', 'Acme Retail Confirmed',        'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000003', '22222222-2222-2222-2222-222222222222', 2000000, 100, '2026-05-31', 'Renewal signed.',          null, null),
+  ('0fff0000-0000-0000-0000-000000000004', 'Acme Labs Confirmed',          'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 1500000, 100, '2026-05-31', 'Test budget approved.',    null, null),
+  ('0fff0000-0000-0000-0000-000000000005', 'Acme Labs Always-on 2',        'c1110000-0000-0000-0000-000000000000', 'aa110000-0000-0000-0000-000000000005', '22222222-2222-2222-2222-222222222222', 1000000, 100, '2026-06-15', 'Standing budget.',         null, null),
+  ('0fff0000-0000-0000-0000-000000000006', 'Beta Brand Confirmed',         'c2220000-0000-0000-0000-000000000000', 'aa220000-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 5500000, 100, '2026-06-15', 'MSA executed.',            null, null),
+  ('0fff0000-0000-0000-0000-000000000007', 'Beta Retention Confirmed',     'c2220000-0000-0000-0000-000000000000', 'aa220000-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', 2000000, 100, '2026-05-15', 'Auto-renew confirmed.',    null, null);
+
+-- Backfill owner on seeded rows and restore NOT NULL.
+update public.parent_companies set owner_user_id = '11111111-1111-1111-1111-111111111111' where owner_user_id is null;
+update public.child_companies  set owner_user_id = '11111111-1111-1111-1111-111111111111' where owner_user_id is null;
+update public.ad_accounts      set owner_user_id = '11111111-1111-1111-1111-111111111111' where owner_user_id is null;
+
+alter table public.parent_companies alter column owner_user_id set not null;
+alter table public.child_companies  alter column owner_user_id set not null;
+alter table public.ad_accounts      alter column owner_user_id set not null;
 
 -- ─── Quotas for 2026-Q2 ──────────────────────────────────────────────────────
 insert into public.user_quotas (user_id, quarter, quota_cents) values

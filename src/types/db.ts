@@ -207,7 +207,6 @@ export type Database = {
           parent_company_id: string
           probability_pct: number
           roles_and_responsibilities: string | null
-          team_id: string | null
           updated_at: string
         }
         Insert: {
@@ -223,7 +222,6 @@ export type Database = {
           parent_company_id: string
           probability_pct: number
           roles_and_responsibilities?: string | null
-          team_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -239,7 +237,6 @@ export type Database = {
           parent_company_id?: string
           probability_pct?: number
           roles_and_responsibilities?: string | null
-          team_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -276,13 +273,6 @@ export type Database = {
             columns: ["parent_company_id"]
             isOneToOne: false
             referencedRelation: "parent_companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "opportunities_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -335,7 +325,6 @@ export type Database = {
           full_name: string | null
           id: string
           role: string
-          team_id: string | null
           updated_at: string
         }
         Insert: {
@@ -343,7 +332,6 @@ export type Database = {
           full_name?: string | null
           id: string
           role?: string
-          team_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -351,34 +339,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           role?: string
-          team_id?: string | null
           updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      teams: {
-        Row: {
-          created_at: string
-          id: string
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          name: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          name?: string
         }
         Relationships: []
       }
@@ -475,7 +436,6 @@ export type Database = {
           parent_company_id: string | null
           probability_pct: number | null
           roles_and_responsibilities: string | null
-          team_id: string | null
           updated_at: string | null
           weighted_pipeline_cents: number | null
         }
@@ -515,13 +475,6 @@ export type Database = {
             referencedRelation: "parent_companies"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "opportunities_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
         ]
       }
       v_rep_pacing: {
@@ -532,20 +485,10 @@ export type Database = {
           qtd_revenue_cents: number | null
           quarter: string | null
           quota_cents: number | null
-          team_id: string | null
-          team_name: string | null
           user_id: string | null
           weighted_pipeline_cents: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {

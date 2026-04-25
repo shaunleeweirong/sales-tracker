@@ -9,7 +9,6 @@ import {
   Building2,
   Target,
   Upload,
-  Users,
   Wallet,
   Layers,
 } from "lucide-react";
@@ -26,7 +25,6 @@ const NAV = [
 
 const ADMIN = [
   { href: "/admin/quotas", label: "Quotas", icon: Wallet },
-  { href: "/admin/teams", label: "Teams", icon: Users },
 ];
 
 export function AppNav({ isAdmin }: { isAdmin: boolean }) {

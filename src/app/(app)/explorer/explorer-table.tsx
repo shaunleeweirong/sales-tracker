@@ -55,7 +55,6 @@ export function ExplorerTable({
   childCompanies,
   profiles,
   selfUserId,
-  selfTeamId,
 }: {
   companies: Company[];
   accounts: Account[];
@@ -63,7 +62,6 @@ export function ExplorerTable({
   childCompanies: ChildCo[];
   profiles: Profile[];
   selfUserId: string;
-  selfTeamId: string | null;
 }) {
   const [openCompanies, setOpenCompanies] = useState<Set<string>>(new Set());
   const [openAccounts, setOpenAccounts] = useState<Set<string>>(new Set());
@@ -411,7 +409,6 @@ export function ExplorerTable({
                                     adAccountId={a.id}
                                     linkedinAccountId={a.linkedin_account_id}
                                     selfUserId={selfUserId}
-                                    selfTeamId={selfTeamId}
                                   />
                                 </div>
                               </TableCell>

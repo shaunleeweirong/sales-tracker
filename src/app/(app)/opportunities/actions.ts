@@ -15,7 +15,6 @@ export async function saveOpportunity(data: OppFormInitial) {
     parent_company_id: data.parentCompanyId,
     ad_account_id: data.adAccountId,
     owner_user_id: data.ownerUserId,
-    team_id: data.teamId,
     forecasted_pipeline_cents: data.forecastedCents,
     probability_pct: data.probabilityPct,
     expected_close_date: data.expectedCloseDate,

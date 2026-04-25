@@ -12,18 +12,15 @@ export default async function QuotasPage({ searchParams }: { searchParams: Searc
   // Admin-only page; bypass RLS to see all reps' quotas.
   const supabase = createServiceRoleClient();
 
-  const [{ data: reps }, { data: quotas }, { data: teams }] = await Promise.all([
-    supabase.from("profiles").select("id, full_name, team_id").order("full_name"),
+  const [{ data: reps }, { data: quotas }] = await Promise.all([
+    supabase.from("profiles").select("id, full_name").order("full_name"),
     supabase.from("user_quotas").select("user_id, quarter, quota_cents").eq("quarter", quarter),
-    supabase.from("teams").select("id, name"),
   ]);
-  const teamMap = new Map((teams ?? []).map((t) => [t.id, t.name]));
   const quotaMap = new Map((quotas ?? []).map((q) => [q.user_id, q.quota_cents]));
 
   const rows = (reps ?? []).map((r) => ({
     userId: r.id,
     name: r.full_name ?? r.id.slice(0, 6),
-    team: r.team_id ? teamMap.get(r.team_id) ?? "—" : "—",
     quotaCents: quotaMap.get(r.id) ?? 0,
   }));
 

@@ -13,14 +13,10 @@ const ALL = "__all";
 
 export function PipelineFilters({
   owners,
-  teams,
   selectedOwner,
-  selectedTeam,
 }: {
   owners: { id: string; full_name: string | null }[];
-  teams: { id: string; name: string }[];
   selectedOwner?: string;
-  selectedTeam?: string;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -51,23 +47,6 @@ export function PipelineFilters({
             <SelectItem key={o.id} value={o.id}>
               {o.full_name ?? o.id.slice(0, 8)}
             </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={selectedTeam ?? ALL} onValueChange={(v) => navigate("team", v)}>
-        <SelectTrigger className="w-40">
-          <SelectValue placeholder="Team">
-            {(v: string) => {
-              if (v === ALL) return "All teams";
-              const t = teams.find((x) => x.id === v);
-              return t?.name ?? "Team";
-            }}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>All teams</SelectItem>
-          {teams.map((t) => (
-            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
           ))}
         </SelectContent>
       </Select>

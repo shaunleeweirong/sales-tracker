@@ -24,7 +24,6 @@ export type OppFormInitial = {
   name: string;
   parentCompanyId: string;
   ownerUserId: string | null;
-  teamId: string | null;
   forecastedCents: number;
   probabilityPct: number;
   expectedCloseDate: string | null;
@@ -38,13 +37,11 @@ export function OpportunityForm({
   initial,
   companies,
   owners,
-  teams,
   adAccountsByCompany,
 }: {
   initial: OppFormInitial;
   companies: Option[];
   owners: Option[];
-  teams: Option[];
   adAccountsByCompany: Record<string, { id: string; linkedin_account_id: string }[]>;
 }) {
   const router = useRouter();
@@ -139,43 +136,23 @@ export function OpportunityForm({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <Label>Owner</Label>
-          <Select
-            value={state.ownerUserId ?? undefined}
-            onValueChange={(v) => update("ownerUserId", v || null)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select owner">
-                {(v: string) => owners.find((o) => o.id === v)?.label ?? "Select owner"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {owners.map((o) => (
-                <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label>Team</Label>
-          <Select
-            value={state.teamId ?? undefined}
-            onValueChange={(v) => update("teamId", v || null)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select team">
-                {(v: string) => teams.find((t) => t.id === v)?.label ?? "Select team"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {teams.map((t) => (
-                <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="flex flex-col gap-1">
+        <Label>Owner</Label>
+        <Select
+          value={state.ownerUserId ?? undefined}
+          onValueChange={(v) => update("ownerUserId", v || null)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select owner">
+              {(v: string) => owners.find((o) => o.id === v)?.label ?? "Select owner"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {owners.map((o) => (
+              <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

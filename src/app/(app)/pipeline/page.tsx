@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { PipelineFilters } from "./filters";
 import { getUserAndProfile } from "@/lib/auth";
 
-type Search = Promise<{ owner?: string; team?: string }>;
+type Search = Promise<{ owner?: string }>;
 
 type Row = {
   id: string;
@@ -25,7 +25,6 @@ type Row = {
   expected_close_date: string | null;
   parent_company_id: string;
   owner_user_id: string | null;
-  team_id: string | null;
   ad_account_linkedin_id: string | null;
 };
 
@@ -37,17 +36,15 @@ export default async function PipelinePage({ searchParams }: { searchParams: Sea
   let q = supabase
     .from("v_opportunities_weighted")
     .select(
-      "id, name, probability_pct, forecasted_pipeline_cents, weighted_pipeline_cents, expected_close_date, parent_company_id, owner_user_id, team_id, ad_account_linkedin_id",
+      "id, name, probability_pct, forecasted_pipeline_cents, weighted_pipeline_cents, expected_close_date, parent_company_id, owner_user_id, ad_account_linkedin_id",
     );
   if (params.owner) q = q.eq("owner_user_id", params.owner);
-  if (params.team) q = q.eq("team_id", params.team);
 
   const { data: rows } = await q.returns<Row[]>();
   const opps = rows ?? [];
 
-  const [{ data: owners }, { data: teams }, { data: companies }] = await Promise.all([
+  const [{ data: owners }, { data: companies }] = await Promise.all([
     supabase.from("profiles").select("id, full_name").order("full_name"),
-    supabase.from("teams").select("id, name").order("name"),
     supabase.from("parent_companies").select("id, name"),
   ]);
   const ownerMap = new Map((owners ?? []).map((o) => [o.id, o.full_name ?? o.id.slice(0, 6)]));
@@ -76,9 +73,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Sea
         </div>
         <PipelineFilters
           owners={owners ?? []}
-          teams={teams ?? []}
           selectedOwner={params.owner}
-          selectedTeam={params.team}
         />
       </div>
 
