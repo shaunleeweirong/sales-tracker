@@ -1,11 +1,11 @@
 /**
  * Sales Tracker — Apps Script backing a single Google Sheet.
  *
- * Schema uses natural keys (no UUIDs):
- *   ParentCompanies:  name | target_revenue_cents
- *   AdAccounts:       linkedin_account_id | parent_company_name | last_7d_spend_cents | qtd_spend_cents | last_synced_at
- *   Opportunities:    name | linkedin_account_id | forecasted_pipeline_cents | probability_pct | expected_close_date | notes | go_to_market_notes | roles_and_responsibilities
- *   Quotas:           quarter | quota_cents
+ * Schema uses natural keys (no UUIDs). All money fields are whole dollars.
+ *   ParentCompanies:  name | target_revenue
+ *   AdAccounts:       linkedin_account_id | parent_company_name | last_7d_spend | qtd_spend | last_synced_at
+ *   Opportunities:    name | linkedin_account_id | forecasted_pipeline | probability_pct | expected_close_date | notes | go_to_market_notes | roles_and_responsibilities
+ *   Quotas:           quarter | quota
  * Derived (formula/script): Pipeline, Dashboard, Explorer
  *
  * Setup: Extensions → Apps Script → paste this file → save → reload sheet.
@@ -35,6 +35,8 @@ function onOpen() {
     .addItem('Import opportunities CSV…', 'showOppsDialog')
     .addSeparator()
     .addItem('Rebuild Explorer', 'rebuildExplorer')
+    .addItem('Collapse all in Explorer', 'collapseAllExplorer')
+    .addItem('Expand all in Explorer', 'expandAllExplorer')
     .addItem('Lock computed tabs', 'lockComputedTabs')
     .addItem('Check sheet structure', 'verifySheets')
     .addToUi();
@@ -58,13 +60,6 @@ function daysRemainingInQuarter(asOf) {
   return Math.max(0, Math.round(ms / 86400000) + 1);
 }
 
-/** @customfunction */
-function centsToUsd(cents) {
-  if (cents == null || cents === '') return '';
-  const n = Number(cents) / 100;
-  return '$' + Math.round(n).toLocaleString('en-US');
-}
-
 // ─── CSV parsing helpers ────────────────────────────────────────────────────
 
 function normalize_(s) {
@@ -81,14 +76,15 @@ function mapHeaders_(headers, aliases) {
   return out;
 }
 
-function parseCurrencyToCents_(raw) {
+// Returns whole dollars (rounded). Accepts "$1,234.56", "(1,234)", "n/a", "-", blanks.
+function parseCurrency_(raw) {
   if (raw == null) return null;
   const trimmed = String(raw).trim();
   if (trimmed === '' || trimmed === '-' || trimmed.toLowerCase() === 'n/a') return null;
   const negative = /^\(.*\)$/.test(trimmed);
   const cleaned = trimmed.replace(/[$,\s()]/g, '');
   if (!/^-?\d+(\.\d+)?$/.test(cleaned)) return null;
-  return Math.round(Number(cleaned) * (negative ? -1 : 1) * 100);
+  return Math.round(Number(cleaned) * (negative ? -1 : 1));
 }
 
 function parseDate_(raw) {
@@ -175,16 +171,16 @@ function importAdSpend_(headers, rawRows) {
   const aliases = {
     parentCompany: ['parent company', 'parent account', 'parent', 'client', 'parent co'],
     linkedinAccountId: ['linkedin ad account id', 'linkedin account id', 'ad account id', 'account id', 'account'],
-    last7dSpendCents: ['last 7 days spend', 'last 7d spend', 'sum l7d spend', '7 day spend', '7d spend', 'last 7 days', '7-day spend'],
-    qtdSpendCents: ['qtd spend', 'qtd', 'quarter to date spend', 'quarter to date'],
+    last7dSpend: ['last 7 days spend', 'last 7d spend', 'sum l7d spend', '7 day spend', '7d spend', 'last 7 days', '7-day spend'],
+    qtdSpend: ['qtd spend', 'qtd', 'quarter to date spend', 'quarter to date'],
   };
   const cols = mapHeaders_(headers, aliases);
   if (cols.parentCompany < 0 || cols.linkedinAccountId < 0) {
     throw new Error('Missing required columns: parent company, linkedin account id');
   }
 
-  const parentSheet = ensureSheet_(SHEETS.PARENT, ['name', 'target_revenue_cents']);
-  const adSheet = ensureSheet_(SHEETS.ADS, ['linkedin_account_id', 'parent_company_name', 'last_7d_spend_cents', 'qtd_spend_cents', 'last_synced_at']);
+  const parentSheet = ensureSheet_(SHEETS.PARENT, ['name', 'target_revenue']);
+  const adSheet = ensureSheet_(SHEETS.ADS, ['linkedin_account_id', 'parent_company_name', 'last_7d_spend', 'qtd_spend', 'last_synced_at']);
 
   const parents = indexBy_(parentSheet, 'name');
   const ads = indexBy_(adSheet, 'linkedin_account_id');
@@ -213,10 +209,10 @@ function importAdSpend_(headers, rawRows) {
       warnings.push({ row: rowNum, level: 'info', message: 'New parent company "' + parentName + '" auto-created' });
     }
 
-    const last7Raw = cols.last7dSpendCents >= 0 ? r[headers[cols.last7dSpendCents]] : '';
-    const qtdRaw   = cols.qtdSpendCents    >= 0 ? r[headers[cols.qtdSpendCents]]    : '';
-    const last7 = parseCurrencyToCents_(last7Raw);
-    const qtd   = parseCurrencyToCents_(qtdRaw);
+    const last7Raw = cols.last7dSpend >= 0 ? r[headers[cols.last7dSpend]] : '';
+    const qtdRaw   = cols.qtdSpend    >= 0 ? r[headers[cols.qtdSpend]]    : '';
+    const last7 = parseCurrency_(last7Raw);
+    const qtd   = parseCurrency_(qtdRaw);
     if (last7 == null && String(last7Raw || '').trim() !== '') {
       warnings.push({ row: rowNum, level: 'warning', message: '7d spend "' + last7Raw + '" unparseable — stored as $0' });
     }
@@ -251,7 +247,7 @@ function importOpps_(headers, rawRows) {
   const aliases = {
     name: ['name', 'opportunity', 'opportunity name', 'deal', 'deal name'],
     linkedinAccountId: ['linkedin ad account id', 'linkedin account id', 'ad account id', 'account id', 'account'],
-    forecastedCents: ['forecasted pipeline', 'forecasted revenue', 'forecast', 'pipeline', 'forecasted pipeline usd', 'forecast usd', 'amount'],
+    forecasted: ['forecasted pipeline', 'forecasted revenue', 'forecast', 'pipeline', 'forecasted pipeline usd', 'forecast usd', 'amount'],
     probabilityPct: ['probability', 'probability %', 'probability pct', 'prob', 'prob %'],
     expectedCloseDate: ['expected close date', 'close date', 'expected close', 'target close', 'target close date'],
     goToMarketNotes: ['go to market notes', 'go-to-market notes', 'gtm notes', 'go to market', 'gtm', 'go to market strategy notes'],
@@ -264,7 +260,7 @@ function importOpps_(headers, rawRows) {
   }
 
   const OPP_HEADERS = [
-    'name', 'linkedin_account_id', 'forecasted_pipeline_cents', 'probability_pct',
+    'name', 'linkedin_account_id', 'forecasted_pipeline', 'probability_pct',
     'expected_close_date', 'notes', 'go_to_market_notes', 'roles_and_responsibilities',
   ];
   const oppsSheet = ensureSheet_(SHEETS.OPPS, OPP_HEADERS);
@@ -308,8 +304,8 @@ function importOpps_(headers, rawRows) {
       return;
     }
 
-    const forecastRaw = cols.forecastedCents >= 0 ? r[headers[cols.forecastedCents]] : '';
-    const forecast = parseCurrencyToCents_(forecastRaw);
+    const forecastRaw = cols.forecasted >= 0 ? r[headers[cols.forecasted]] : '';
+    const forecast = parseCurrency_(forecastRaw);
     if (forecast == null && String(forecastRaw || '').trim() !== '') {
       warnings.push({ row: rowNum, level: 'warning', message: 'Forecast "' + forecastRaw + '" unparseable — stored as $0' });
     }
@@ -392,10 +388,10 @@ function setupTabs() {
   const ss = SpreadsheetApp.getActive();
 
   const dataTabs = [
-    { name: SHEETS.PARENT, headers: ['name', 'target_revenue_cents'] },
-    { name: SHEETS.ADS, headers: ['linkedin_account_id', 'parent_company_name', 'last_7d_spend_cents', 'qtd_spend_cents', 'last_synced_at'] },
-    { name: SHEETS.OPPS, headers: ['name', 'linkedin_account_id', 'forecasted_pipeline_cents', 'probability_pct', 'expected_close_date', 'notes', 'go_to_market_notes', 'roles_and_responsibilities'] },
-    { name: SHEETS.QUOTAS, headers: ['quarter', 'quota_cents'] },
+    { name: SHEETS.PARENT, headers: ['name', 'target_revenue'] },
+    { name: SHEETS.ADS, headers: ['linkedin_account_id', 'parent_company_name', 'last_7d_spend', 'qtd_spend', 'last_synced_at'] },
+    { name: SHEETS.OPPS, headers: ['name', 'linkedin_account_id', 'forecasted_pipeline', 'probability_pct', 'expected_close_date', 'notes', 'go_to_market_notes', 'roles_and_responsibilities'] },
+    { name: SHEETS.QUOTAS, headers: ['quarter', 'quota'] },
   ];
   dataTabs.forEach(function (t) {
     const sh = ensureSheet_(t.name, t.headers);
@@ -409,7 +405,7 @@ function setupTabs() {
     pipeline.getRange('A1').setFormula(
       '=QUERY({Opportunities!D2:D, Opportunities!C2:C, ARRAYFORMULA(Opportunities!C2:C*Opportunities!D2:D/100)},' +
       '"select Col1, count(Col1), sum(Col2), sum(Col3) where Col1 is not null group by Col1 order by Col1 desc ' +
-      'label Col1 \'Probability %\', count(Col1) \'Count\', sum(Col2) \'Forecast (cents)\', sum(Col3) \'Weighted (cents)\'", 0)'
+      'label Col1 \'Probability %\', count(Col1) \'Count\', sum(Col2) \'Forecast\', sum(Col3) \'Weighted\'", 0)'
     );
   }
 
@@ -424,21 +420,21 @@ function setupTabs() {
       ['B2', null, '=DATE(YEAR(TODAY()),(INT((MONTH(TODAY())-1)/3)+1)*3+1,0)-TODAY()+1'],
       ['A4', 'Quota', null],
       ['B4', null, '=IFERROR(VLOOKUP(B1,Quotas!A:B,2,FALSE),0)'],
-      ['C4', null, '="$"&TEXT(ROUND(B4/100),"#,##0")'],
+      ['C4', null, '="$"&TEXT(ROUND(B4),"#,##0")'],
       ['A5', 'QTD revenue', null],
       ['B5', null, '=SUM(AdAccounts!D:D)'],
-      ['C5', null, '="$"&TEXT(ROUND(B5/100),"#,##0")'],
+      ['C5', null, '="$"&TEXT(ROUND(B5),"#,##0")'],
       ['A6', 'Daily run rate', null],
       ['B6', null, '=IFERROR(ROUND(SUM(AdAccounts!C:C)/7),0)'],
-      ['C6', null, '="$"&TEXT(ROUND(B6/100),"#,##0")'],
+      ['C6', null, '="$"&TEXT(ROUND(B6),"#,##0")'],
       ['A7', 'Projected EOQ', null],
       ['B7', null, '=B5+B6*B2'],
-      ['C7', null, '="$"&TEXT(ROUND(B7/100),"#,##0")'],
+      ['C7', null, '="$"&TEXT(ROUND(B7),"#,##0")'],
       ['A8', 'Pace vs quota (%)', null],
       ['B8', null, '=IF(B4=0,,ROUND(100*B7/B4,1))'],
       ['A10', 'Weighted pipeline (open)', null],
       ['B10', null, '=IFERROR(ROUND(SUMPRODUCT(Opportunities!C2:C,Opportunities!D2:D)/100),0)'],
-      ['C10', null, '="$"&TEXT(ROUND(B10/100),"#,##0")'],
+      ['C10', null, '="$"&TEXT(ROUND(B10),"#,##0")'],
       ['A11', 'Weighted / quota (%)', null],
       ['B11', null, '=IF(B4=0,,ROUND(100*B10/B4,1))'],
     ];
@@ -459,7 +455,7 @@ function setupTabs() {
   if (def && def.getLastRow() <= 1 && def.getLastColumn() <= 1) ss.deleteSheet(def);
 
   SpreadsheetApp.getUi().alert(
-    'Setup complete.\n\n7 tabs ready: ParentCompanies, AdAccounts, Opportunities, Quotas, Pipeline, Dashboard, Explorer.\n\nNext: add a row to Quotas (e.g. "2026-Q2" | 50000000), then import sample CSVs via the menu.'
+    'Setup complete.\n\n7 tabs ready: ParentCompanies, AdAccounts, Opportunities, Quotas, Pipeline, Dashboard, Explorer.\n\nNext: add a row to Quotas (e.g. "2026-Q2" | 500000), then import sample CSVs via the menu.'
   );
 }
 
@@ -556,71 +552,76 @@ function verifySheets() {
 // ─── Explorer rebuild ───────────────────────────────────────────────────────
 
 function rebuildExplorer() {
-  const parents = readRows_(SHEETS.PARENT);
   const ads = readRows_(SHEETS.ADS);
+  syncConfirmedSpendOpps_(ads);
   const opps = readRows_(SHEETS.OPPS);
+  const parents = dedupeParents_(autoCreateMissingParents_(ads));
 
-  const headers = ['Name', 'Detail', 'QTD / Forecast', 'Weighted', 'Target / Prob', 'Close'];
+  const headers = ['Name', 'Detail', 'QTD / Forecast', 'Weighted', 'Target Revenue', '% of Revenue to Target', 'Probability', 'Close'];
   const sheet = ensureSheet_(SHEETS.EXPLORER, headers);
 
   if (sheet.getLastRow() > 1) {
     sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+    // Unhide any rows that were left hidden from prior collapse state.
+    // Removing row groups does not auto-restore visibility.
+    sheet.showRows(2, sheet.getLastRow() - 1);
   }
-  let guard = 0;
-  while (sheet.getRowGroupDepth(2) > 0 && guard++ < 50) {
-    const g = sheet.getRowGroup(2, sheet.getRowGroupDepth(2));
-    if (!g) break;
-    g.remove();
-  }
+  clearAllRowGroups_(sheet);
 
   parents.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
 
   const rows = [];
   const outerGroups = [];
   const innerGroups = [];
+  const parentRowsInSheet = []; // sheet rows that must stay at depth 0
 
   parents.forEach(function (p) {
-    const adsForP = ads.filter(function (a) { return a.parent_company_name === p.name; });
+    const adsForP = ads.filter(function (a) { return String(a.parent_company_name || '').trim() === p.name; });
     const linkedinIdsForP = adsForP.map(function (a) { return a.linkedin_account_id; });
     const oppsForP = opps.filter(function (o) { return linkedinIdsForP.indexOf(o.linkedin_account_id) >= 0; });
 
-    const companyQtd = sumField_(adsForP, 'qtd_spend_cents');
+    const companyQtd = sumField_(adsForP, 'qtd_spend');
     const companyWeighted = oppsForP.reduce(function (s, o) {
-      return s + (Number(o.forecasted_pipeline_cents) || 0) * (Number(o.probability_pct) || 0) / 100;
+      return s + (Number(o.forecasted_pipeline) || 0) * (Number(o.probability_pct) || 0) / 100;
     }, 0);
-    const target = Number(p.target_revenue_cents) || 0;
+    const target = Number(p.target_revenue) || 0;
     const targetPct = target > 0 ? Math.round((100 * companyQtd) / target) : null;
 
     rows.push([
       p.name,
       adsForP.length + ' ad accounts',
-      fmtCentsShort_(companyQtd) + ' QTD',
-      fmtCentsShort_(companyWeighted) + ' weighted',
-      target ? (fmtCentsShort_(target) + (targetPct != null ? ' · ' + targetPct + '% of target' : '')) : '—',
+      fmtDollarsShort_(companyQtd) + ' QTD',
+      fmtDollarsShort_(companyWeighted) + ' weighted',
+      target ? fmtDollarsShort_(target) : '—',
+      target && targetPct != null ? targetPct + '%' : '',
+      '',
       '',
     ]);
+    parentRowsInSheet.push(rows.length + 1);
 
     const companyChildStart = rows.length + 2;
 
     adsForP.sort(function (a, b) { return String(a.linkedin_account_id).localeCompare(String(b.linkedin_account_id)); });
     adsForP.forEach(function (a) {
       const oppsForA = opps.filter(function (o) { return o.linkedin_account_id === a.linkedin_account_id; });
-      const adQtd = Number(a.qtd_spend_cents) || 0;
-      const ad7d = Number(a.last_7d_spend_cents) || 0;
+      const adQtd = Number(a.qtd_spend) || 0;
+      const ad7d = Number(a.last_7d_spend) || 0;
       const dailyRate = Math.round(ad7d / 7);
       const adWeighted = oppsForA.reduce(function (s, o) {
-        return s + (Number(o.forecasted_pipeline_cents) || 0) * (Number(o.probability_pct) || 0) / 100;
+        return s + (Number(o.forecasted_pipeline) || 0) * (Number(o.probability_pct) || 0) / 100;
       }, 0);
       const sumAt100 = oppsForA
         .filter(function (o) { return Number(o.probability_pct) === 100; })
-        .reduce(function (s, o) { return s + (Number(o.forecasted_pipeline_cents) || 0); }, 0);
-      const coverageWarning = adQtd > sumAt100 ? ' ⚠ only ' + fmtCentsShort_(sumAt100) + ' at 100%' : '';
+        .reduce(function (s, o) { return s + (Number(o.forecasted_pipeline) || 0); }, 0);
+      const coverageWarning = adQtd > sumAt100 ? ' ⚠ only ' + fmtDollarsShort_(sumAt100) + ' at 100%' : '';
 
       rows.push([
         '  ' + a.linkedin_account_id,
-        oppsForA.length + ' opps · 7d ' + fmtCentsShort_(ad7d) + ' · run/day ' + fmtCentsShort_(dailyRate),
-        fmtCentsShort_(adQtd) + ' QTD' + coverageWarning,
-        fmtCentsShort_(adWeighted) + ' weighted',
+        oppsForA.length + ' opps · 7d ' + fmtDollarsShort_(ad7d) + ' · run/day ' + fmtDollarsShort_(dailyRate),
+        fmtDollarsShort_(adQtd) + ' QTD' + coverageWarning,
+        fmtDollarsShort_(adWeighted) + ' weighted',
+        '',
+        '',
         '',
         '',
       ]);
@@ -631,14 +632,16 @@ function rebuildExplorer() {
         return String(x.expected_close_date || '').localeCompare(String(y.expected_close_date || ''));
       });
       oppsForA.forEach(function (o) {
-        const forecast = Number(o.forecasted_pipeline_cents) || 0;
+        const forecast = Number(o.forecasted_pipeline) || 0;
         const prob = Number(o.probability_pct) || 0;
         const weighted = Math.round((forecast * prob) / 100);
         rows.push([
           '    ' + o.name,
           '',
-          fmtCentsShort_(forecast) + ' forecast',
-          fmtCentsShort_(weighted) + ' weighted',
+          fmtDollarsShort_(forecast) + ' forecast',
+          fmtDollarsShort_(weighted) + ' weighted',
+          '',
+          '',
           prob + '%',
           o.expected_close_date || '',
         ]);
@@ -664,18 +667,23 @@ function rebuildExplorer() {
       '',
       '',
       '',
+      '',
+      '',
     ]);
+    parentRowsInSheet.push(rows.length + 1);
     const orphanStart = rows.length + 2;
     orphans.sort(function (x, y) { return String(x.name || '').localeCompare(String(y.name || '')); });
     orphans.forEach(function (o) {
-      const forecast = Number(o.forecasted_pipeline_cents) || 0;
+      const forecast = Number(o.forecasted_pipeline) || 0;
       const prob = Number(o.probability_pct) || 0;
       const weighted = Math.round((forecast * prob) / 100);
       rows.push([
         '  ' + (o.name || '(unnamed)'),
         'linkedin id: ' + (o.linkedin_account_id || '(blank)'),
-        fmtCentsShort_(forecast) + ' forecast',
-        fmtCentsShort_(weighted) + ' weighted',
+        fmtDollarsShort_(forecast) + ' forecast',
+        fmtDollarsShort_(weighted) + ' weighted',
+        '',
+        '',
         prob + '%',
         o.expected_close_date || '',
       ]);
@@ -698,8 +706,166 @@ function rebuildExplorer() {
     sheet.getRange(g.start, 1, g.end - g.start + 1, 1).shiftRowGroupDepth(1);
   });
 
+  // shiftRowGroupDepth(1) extends adjacent same-depth groups, swallowing the
+  // parent rows in between. Force each parent row back to depth 0 so each
+  // parent's outer group stays isolated to its own children.
+  parentRowsInSheet.forEach(function (r) {
+    let safety = 0;
+    while (sheet.getRowGroupDepth(r) > 0 && safety++ < 5) {
+      sheet.getRange(r, 1).shiftRowGroupDepth(-1);
+    }
+  });
+
   sheet.setFrozenRows(1);
   sheet.autoResizeColumns(1, headers.length);
+}
+
+// Each AdAccount with qtd_spend > 0 gets exactly one auto-managed 100%-probability
+// opportunity named "Confirmed QTD spend". The forecasted_pipeline is rewritten to
+// match the current qtd_spend on every sync. Notes / GTM / RACI cells are
+// preserved if a user edited them. Ad accounts where qtd_spend drops to 0 keep
+// their existing auto-opp (the user can delete it manually) — we never delete.
+const CONFIRMED_OPP_NAME = 'Confirmed QTD spend';
+
+function syncConfirmedSpendOpps_(ads) {
+  const OPP_HEADERS = [
+    'name', 'linkedin_account_id', 'forecasted_pipeline', 'probability_pct',
+    'expected_close_date', 'notes', 'go_to_market_notes', 'roles_and_responsibilities',
+  ];
+  const oppsSheet = ensureSheet_(SHEETS.OPPS, OPP_HEADERS);
+
+  const existing = {};
+  const oppValues = oppsSheet.getLastRow() > 1
+    ? oppsSheet.getRange(2, 1, oppsSheet.getLastRow() - 1, OPP_HEADERS.length).getValues()
+    : [];
+  oppValues.forEach(function (row, i) {
+    const key = String(row[0] || '').trim().toLowerCase() + '|' + String(row[1] || '').trim();
+    if (key !== '|') existing[key] = { rowIndex: i + 2, values: row };
+  });
+
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const lookupKey = CONFIRMED_OPP_NAME.toLowerCase() + '|';
+
+  ads.forEach(function (a) {
+    const acctId = String(a.linkedin_account_id || '').trim();
+    const qtd = Number(a.qtd_spend) || 0;
+    if (!acctId || qtd <= 0) return;
+
+    const key = lookupKey + acctId;
+    const match = existing[key];
+
+    if (match) {
+      const newRow = match.values.slice();
+      newRow[0] = CONFIRMED_OPP_NAME;
+      newRow[1] = acctId;
+      newRow[2] = qtd;
+      newRow[3] = 100;
+      newRow[4] = today;
+      // notes (5), gtm (6), raci (7) preserved
+      oppsSheet.getRange(match.rowIndex, 1, 1, OPP_HEADERS.length).setValues([newRow]);
+    } else {
+      const newRow = [
+        CONFIRMED_OPP_NAME, acctId, qtd, 100, today,
+        'Auto-managed by Sales Tracker — mirrors AdAccounts.qtd_spend.', '', '',
+      ];
+      oppsSheet.appendRow(newRow);
+      existing[key] = { rowIndex: oppsSheet.getLastRow(), values: newRow };
+    }
+  });
+}
+
+// Collapses every row group in the Explorer tab (companies and ad-accounts) in
+// one shot. Saves clicking each `−` toggle by hand.
+function collapseAllExplorer() {
+  toggleAllExplorerGroups_(true);
+}
+
+// Expands every row group in the Explorer tab in one shot.
+function expandAllExplorer() {
+  toggleAllExplorerGroups_(false);
+}
+
+function toggleAllExplorerGroups_(collapse) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName(SHEETS.EXPLORER);
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert('Explorer tab not found — run Setup tabs first.');
+    return;
+  }
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  const seen = {};
+  for (let r = 2; r <= lastRow; r++) {
+    const maxDepth = sheet.getRowGroupDepth(r);
+    for (let d = 1; d <= maxDepth; d++) {
+      const g = sheet.getRowGroup(r, d);
+      if (!g) continue;
+      const key = g.getRange().getRow() + ':' + d;
+      if (seen[key]) continue;
+      seen[key] = true;
+      if (collapse) g.collapse();
+      else g.expand();
+    }
+  }
+}
+
+// Removes every row group across the entire sheet, at every depth. The earlier
+// implementation only checked row 2's depth — but row 2 is typically a parent
+// row sitting at depth 0, so the loop exited without clearing the deeper groups
+// at rows 3+. Stale groups then merged with new ones on subsequent rebuilds,
+// causing one parent's toggle to collapse everything below it.
+function clearAllRowGroups_(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 1) return;
+  let guard = 0;
+  for (let r = 2; r <= lastRow; r++) {
+    while (sheet.getRowGroupDepth(r) > 0) {
+      if (guard++ > 5000) return;
+      const g = sheet.getRowGroup(r, sheet.getRowGroupDepth(r));
+      if (!g) break;
+      g.remove();
+    }
+  }
+}
+
+// Collapses ParentCompanies rows that share the same trimmed name into one
+// logical parent for the Explorer rebuild. Defensive against duplicates from
+// manual edits, paste accidents, or trailing-whitespace quirks. Picks the row
+// with target_revenue set when available; otherwise the first occurrence.
+// The ParentCompanies tab itself is not modified — clean it up by hand if you
+// want the duplicate rows gone.
+function dedupeParents_(parents) {
+  const byKey = {};
+  const order = [];
+  parents.forEach(function (p) {
+    const key = String(p.name || '').trim();
+    if (!key) return;
+    if (!byKey[key]) {
+      byKey[key] = { name: key, target_revenue: p.target_revenue || '' };
+      order.push(key);
+    } else if (!byKey[key].target_revenue && p.target_revenue) {
+      byKey[key].target_revenue = p.target_revenue;
+    }
+  });
+  return order.map(function (k) { return byKey[k]; });
+}
+
+// Returns the up-to-date ParentCompanies rows, appending entries for any
+// parent_company_name that exists in AdAccounts but isn't in ParentCompanies.
+// Mirrors the CSV importer's auto-create behavior so manual ad-account entry
+// doesn't require pre-populating ParentCompanies.
+function autoCreateMissingParents_(ads) {
+  const parentSheet = ensureSheet_(SHEETS.PARENT, ['name', 'target_revenue']);
+  const parents = readRows_(SHEETS.PARENT);
+  const known = {};
+  parents.forEach(function (p) { known[String(p.name).trim()] = true; });
+  ads.forEach(function (a) {
+    const name = String(a.parent_company_name || '').trim();
+    if (!name || known[name]) return;
+    parentSheet.appendRow([name, '']);
+    parents.push({ name: name, target_revenue: '' });
+    known[name] = true;
+  });
+  return parents;
 }
 
 function readRows_(sheetName) {
@@ -718,8 +884,8 @@ function sumField_(rows, field) {
   return rows.reduce(function (s, r) { return s + (Number(r[field]) || 0); }, 0);
 }
 
-function fmtCentsShort_(cents) {
-  const n = (Number(cents) || 0) / 100;
+function fmtDollarsShort_(dollars) {
+  const n = Number(dollars) || 0;
   const abs = Math.abs(n);
   if (abs >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
   if (abs >= 1000) return '$' + Math.round(n / 1000) + 'k';

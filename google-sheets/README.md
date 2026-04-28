@@ -17,7 +17,7 @@ A port of the Next.js sales-tracker app to a single Google Sheet + Apps Script. 
 3. **Reload the spreadsheet.** A new "Sales Tracker" menu appears next to Help.
 4. **Run Sales Tracker → Setup tabs (first-time).** All 7 tabs are created automatically with the correct headers and formulas.
 5. **Run Sales Tracker → Lock computed tabs.** Adds a warning prompt if you try to edit Pipeline, Dashboard, or Explorer.
-6. **Set your quota.** On the `Quotas` tab, add a row like `2026-Q2 | 50000000` (that's $500,000 in integer cents).
+6. **Set your quota.** On the `Quotas` tab, add a row like `2026-Q2 | 500000` (whole dollars).
 
 ## Daily use
 
@@ -27,7 +27,7 @@ A port of the Next.js sales-tracker app to a single Google Sheet + Apps Script. 
 3. Rows are upserted by `linkedin_account_id`. Parent/child companies are auto-created if new.
 
 ### Adding opportunities
-**By hand:** add a row to the `Opportunities` tab. Columns: `name`, `linkedin_account_id` (must already exist in `AdAccounts`), `forecasted_pipeline_cents`, `probability_pct` (one of 5/10/25/50/75/90/100), `expected_close_date` (`YYYY-MM-DD`), and optional free-text notes.
+**By hand:** add a row to the `Opportunities` tab. Columns: `name`, `linkedin_account_id` (must already exist in `AdAccounts`), `forecasted_pipeline`, `probability_pct` (one of 5/10/25/50/75/90/100), `expected_close_date` (`YYYY-MM-DD`), and optional free-text notes.
 
 **By CSV:** **Sales Tracker → Import opportunities CSV…**. Required columns: name, linkedin ad account id, probability. The LinkedIn ad account must already exist in `AdAccounts`.
 
@@ -36,6 +36,9 @@ Open the `Dashboard` tab. Everything recomputes automatically.
 
 ### Exploring the tree
 Open the `Explorer` tab and click **Sales Tracker → Rebuild Explorer** whenever you want a fresh snapshot (after imports, after adding opps, etc.). Click the `+/−` toggles in the row gutter to expand/collapse each company or ad account. The rebuild is safe to run as often as you like.
+
+### Auto-managed "Confirmed QTD spend" opportunities
+Each rebuild also syncs the Opportunities tab so every AdAccount with `qtd_spend > 0` has one 100%-probability opp named **"Confirmed QTD spend"** whose `forecasted_pipeline` matches the current `qtd_spend`. This is what keeps the Explorer's ⚠ coverage warnings in check — confirmed money already spent is treated as closed-won. Don't rename these rows; the script finds them by name + linkedin_account_id and overwrites forecast/probability/close-date on every sync. You can edit `notes`, `go_to_market_notes`, and `roles_and_responsibilities` freely — those are preserved. If you want to retire one (e.g. the ad account is gone), delete the row by hand; the script never deletes.
 
 ## Sample CSVs
 
@@ -48,10 +51,10 @@ If you've accumulated real data in the Supabase-backed app and want to carry it 
 ```bash
 mkdir -p google-sheets/data
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" <<'SQL'
-\copy (select name, target_revenue_cents from parent_companies) to 'google-sheets/data/parent_companies.csv' with csv header
-\copy (select a.linkedin_account_id, pc.name as parent_company_name, a.last_7d_spend_cents, a.qtd_spend_cents, a.last_synced_at from ad_accounts a join parent_companies pc on pc.id = a.parent_company_id) to 'google-sheets/data/ad_accounts.csv' with csv header
-\copy (select o.name, a.linkedin_account_id, o.forecasted_pipeline_cents, o.probability_pct, o.expected_close_date, o.notes, o.go_to_market_notes, o.roles_and_responsibilities from opportunities o join ad_accounts a on a.id = o.ad_account_id) to 'google-sheets/data/opportunities.csv' with csv header
-\copy (select quarter, quota_cents from user_quotas) to 'google-sheets/data/quotas.csv' with csv header
+\copy (select name, round(target_revenue_cents/100.0)::bigint as target_revenue from parent_companies) to 'google-sheets/data/parent_companies.csv' with csv header
+\copy (select a.linkedin_account_id, pc.name as parent_company_name, round(a.last_7d_spend_cents/100.0)::bigint as last_7d_spend, round(a.qtd_spend_cents/100.0)::bigint as qtd_spend, a.last_synced_at from ad_accounts a join parent_companies pc on pc.id = a.parent_company_id) to 'google-sheets/data/ad_accounts.csv' with csv header
+\copy (select o.name, a.linkedin_account_id, round(o.forecasted_pipeline_cents/100.0)::bigint as forecasted_pipeline, o.probability_pct, o.expected_close_date, o.notes, o.go_to_market_notes, o.roles_and_responsibilities from opportunities o join ad_accounts a on a.id = o.ad_account_id) to 'google-sheets/data/opportunities.csv' with csv header
+\copy (select quarter, round(quota_cents/100.0)::bigint as quota from user_quotas) to 'google-sheets/data/quotas.csv' with csv header
 SQL
 ```
 
